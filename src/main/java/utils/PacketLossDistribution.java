@@ -4,6 +4,7 @@ import org.apache.commons.math3.distribution.AbstractRealDistribution;
 import org.apache.commons.math3.distribution.RealDistribution;
 import org.apache.commons.math3.exception.NumberIsTooLargeException;
 import org.apache.commons.math3.exception.OutOfRangeException;
+import org.apache.commons.math3.random.MersenneTwister;
 import org.apache.commons.math3.random.RandomGenerator;
 
 import java.util.Random;
@@ -16,6 +17,9 @@ public class PacketLossDistribution extends AbstractRealDistribution {
 
     public PacketLossDistribution(RandomGenerator randomGenerator, final double r50, final double r99) {
         super(randomGenerator);
+        if (r50 <= r99) {
+            throw new IllegalStateException("The radius at which packet loss is 50% must be smaller than the radius at which packet loss is 99%");
+        }
         this.r50 = r50;
         this.r99 = r99;
         k = K_BASE / (this.r99 - this.r50);
@@ -71,4 +75,7 @@ public class PacketLossDistribution extends AbstractRealDistribution {
         return true;
     }
 
+    public static void main(String[] args) {
+        System.out.println(new PacketLossDistribution(new MersenneTwister(), 100000, 100001).cumulativeProbability(100));
+    }
 }
