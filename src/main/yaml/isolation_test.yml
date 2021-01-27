@@ -69,9 +69,11 @@ variables:
   gAlgorithm: &gAlgorithm
     type: ArbitraryVariable
     parameters: [2, [0, 1, 2]] # 0=ABF, 1=FLEX, 2=BIS
-  packetLossR55: &packetLossR55
+  packetLoss50_99Ratio:
     type: ArbitraryVariable
     parameters: [0.9, [0.8, 0.85, 0.9, 0.95]] # 0=ABF, 1=FLEX, 2=BIS
+  packetLossR55: &packetLossR50
+    formula: packetLossR99 * packetLoss50_99Ratio
   packetLossR99: &packetLossR99
     formula: radius * 0.99
     
@@ -171,10 +173,12 @@ pools:
       type: Event
       actions:
         - type: RunProtelisProgram
-          parameters: [isolation_test, *pretain]
+          parameters: [isolation_test, *pretain, "PacketLoss", [*packetLossR50, *packetLossR99]]
     - program: send
   - pool: &vibrate
-    - time-distribution: 1
+    - time-distribution:
+        type: AnyRealDistribution
+        parameters: ["Exponential", 1]
       type: Event
       actions:
         - type: BrownianMove

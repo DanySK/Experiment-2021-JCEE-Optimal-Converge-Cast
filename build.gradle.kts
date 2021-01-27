@@ -38,6 +38,9 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
     // For extensions
     implementation(protelis("interpreter"))
+    implementation("org.danilopianini:jirf:_")
+    implementation("org.jgrapht:jgrapht-core:_")
+    implementation("org.apache.commons:commons-lang3:_")
 }
 
 // Heap size estimation for batches

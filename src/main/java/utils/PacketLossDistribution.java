@@ -9,12 +9,12 @@ import org.apache.commons.math3.random.RandomGenerator;
 import java.util.Random;
 
 
-public class PacketLoss extends AbstractRealDistribution {
+public class PacketLossDistribution extends AbstractRealDistribution {
     private final double r50, r99, k;
     private static final double K_BASE = Math.log(6792093d/29701);
     private static final double RADIX = 1.0/3;
 
-    public PacketLoss(RandomGenerator randomGenerator, final double r50, final double r99) {
+    public PacketLossDistribution(RandomGenerator randomGenerator, final double r50, final double r99) {
         super(randomGenerator);
         this.r50 = r50;
         this.r99 = r99;
