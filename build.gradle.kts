@@ -32,7 +32,7 @@ dependencies {
     implementation(alchemist("incarnation-protelis"))
     if (!GraphicsEnvironment.isHeadless()) {
         implementation(alchemist("swingui"))
-        implementation(alchemist("fxui"))
+        // implementation(alchemist("fxui"))
     }
     implementation(kotlin("stdlib-jdk8"))
     // For extensions
