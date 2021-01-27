@@ -1,0 +1,100 @@
+module utils
+
+import it.unibo.alchemist.custom.CoordinationUtil.*
+
+public def noRetainCheck() = self.nbrLag() < self.getDeltaTime()
+
+// nbr[Field] expressed using share[Field]; assuming default is a local value and v is a field value
+public def nbrF(default, v) =
+	share (x <- nbr(default)) { v } yield { x }
+
+// IDEMPOTENT OPERATIONS
+//////////////
+
+public def max(a, b) =
+    mux (a.compareTo(b) > 0 ) { a } else { b }
+
+public def min(a, b) =	
+    mux (a.compareTo(b) < 0 ) { a } else { b }
+
+// AGGREGATORS
+//////////////
+
+// Count number of neighbours.
+public def countHood(cond) =
+	foldSum(0, mux(cond) { 1 } else { 0 })
+
+// SPATIAL FUNCTIONS
+////////////////////
+
+// Crop a coordinate to fit into a rectangle.
+def cropRectangle(x, low, hi) =
+    [min(max(x.get(0), low.get(0)), hi.get(0)),
+     min(max(x.get(1), low.get(1)), hi.get(1))]
+
+// Random vector of norm up to r (biased towards the border).
+def randVector(r) {
+    let theta = 2*PI*self.nextRandomDouble();
+    pow(self.nextRandomDouble(), 0.2) * r * [cos(theta),sin(theta)]
+}
+
+// Random vector within the rectangle bounded by points "lo" and "hi".
+def randRect(lo, hi) =
+    [lo.get(0) + (hi.get(0)-lo.get(0))*self.nextRandomDouble(),
+     lo.get(1) + (hi.get(1)-lo.get(1))*self.nextRandomDouble()]
+
+// Random vector within the rectangle bounded by points "lo" and "hi".
+def randCircle(center, radius) = center + randVector(radius)
+
+
+// Returns a goal by applying function "goal", and regenerates it whenever
+// the distance from the current goal drops below "mindist".
+def ifClose(goal, dist) =
+    rep (x <- goal()) {
+	 // if (self.distanceTo(x) <= dist)
+        if (computeDistance(self, x) <= dist)
+        { goal() } else { x }
+    }
+
+// Walk to random targets within a rectangle of given size (and within a range if given), changing targets within reach.
+public def rectangleWalkRange(lo, hi, dspace, reach) =
+    env.put('target', ifClose({cropRectangle(self.getCoordinates()+randVector(dspace), lo, hi)}, reach))
+
+public def rectangleWalk(lo, hi, reach) =
+    env.put('target', ifClose({randRect(lo, hi)}, reach))
+
+// Walk to random targets within a circle of given size, changing targets within reach.
+public def circleWalk(center, radius, reach) =
+    env.put('target', ifClose({randCircle(center, radius)}, reach))
+
+// TEMPORAL FUNCTIONS
+/////////////////////
+
+// Mean value every frequency time.
+public def meanCounter(val, frequency) {
+    let time = self.getCurrentTime();
+    let dt = if (self.getDeltaTime() == 0) {time} else {self.getDeltaTime()};
+    let null = [0, 0];
+    let count = rep (x <- null) {
+        let restart = rep (t <- [false, time]) {
+                [floor(time/frequency) > floor(t.get(1)/frequency), time]
+        }.get(0);
+        let old = if (restart) {null} else {x};
+        if (NEGATIVE_INFINITY < val && val < POSITIVE_INFINITY) {
+                old + [val*dt, dt]
+        } else {old}
+    };
+    count.get(0)/count.get(1)
+}
+
+// PROXY NEIGHBOURHOOD FUNCTIONS
+//////////////
+
+public def nbrMaxDist() = self.nbrRange()		// could add rel and abs error
+public def nbrMinDist() = self.nbrRange()		// could add rel and abs error
+
+public def nbrMaxLag() = self.nbrLag()			// could add rel and abs error
+public def nbrMinLag() = self.nbrLag()			// could add rel and abs error 
+
+public def nbrMaxDistNow(W) = nbrMaxDist() + nbrMaxLag() * W
+public def nbrMinDistNow(W) = nbrMinDist() - nbrMaxLag() * W

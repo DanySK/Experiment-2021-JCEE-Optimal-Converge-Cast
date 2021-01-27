@@ -1,0 +1,74 @@
+module collection
+
+// module containing the state-of-the-art collection algorithms to compare with
+
+import utils
+
+/**
+ * Weighted Multi-Path Parametric Collection.
+ *
+ * @param dist        distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param root        inverse function of accumulate by percentage
+ * @param radius      communication radius
+ * @return            estimated maximum value
+ */
+public def mpwCollection(dist, value, accumulate, null, root, radius) =
+    share (old <- value) {
+        let gdn = nbrF(0, goodness(dist, radius)); // goodness for receiving values
+        let nbrVals = mux(noRetainCheck()){ root(old, gdn) } else { null };
+        let nbrAggr = foldHood(null, nbrVals, accumulate);
+        accumulate(value, nbrAggr)
+    }
+// normalized goodness for sending values
+def goodness(potential, radius) =
+    mux (isInfinite(potential)) { 0 } else { 
+	    let d = max(radius - self.nbrRange(), 0);
+	    let p = max(potential - nbr(potential), 0);
+	    let gdn = d * p
+	    let N = foldSum(0, gdn)
+	    mux (N == 0) {0} else {gdn/N}
+    }
+
+
+/**
+ * Multi-Path Parametric Collection.
+ *
+ * @param dist        distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param root        inverse function of accumulate
+ * @return            estimated maximum value
+ */
+public def mpCollection(dist, value, accumulate, null, root) =
+    share (old <- [value, value]) {
+    	let nbrVals = foldHood(null, mux(
+			nbr(!isInfinite(dist)) && nbr(dist) > dist && noRetainCheck()) 
+		{ old.get(1) } else { null }, accumulate)
+	    extract(accumulate(value, nbrVals), countHood(nbr(dist) < dist && noRetainCheck()), root)
+    }.get(0)
+
+def extract(val, num, root) = [val, root(val, num)]
+
+
+/**
+ * Single-Path Parametric Collection.
+ *
+ * @param dist        distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @return            estimated maximum value
+ */
+public def spCollection(dist, value, accumulate, null) {
+    let id = self.getDeviceUID().getId();
+    share (old <- [value, id]) {
+        let valueF = mux (old.get(1) == id && nbr(dist) > dist) 
+        	{ old.get(0) } else { null };
+        let nbrLocal = foldHood(null, valueF, accumulate)
+        [accumulate(value, nbrLocal), foldMin(nbr([dist, id])).get(1)]
+    }.get(0)
+}

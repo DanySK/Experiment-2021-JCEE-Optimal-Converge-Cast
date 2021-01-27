@@ -148,7 +148,7 @@ public final class ShareCall<S, T> extends AbstractPersistedTree<S, T> {
         assert !localIsField || localAsField.isPresent() && initAsField.isPresent();
         final Field<S> nbr = localIsField
             ? context.buildFieldDeferred(
-                field -> extractValueFromField(initAsField.get(), (Field<S>) init, myId),
+                field -> extractValueFromField(initAsField.get(), (Field<S>) initValue, myId),
                 localAsField.get(),
                 bodyResult::getResult
             )

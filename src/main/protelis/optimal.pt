@@ -1,0 +1,245 @@
+module optimal
+
+// module containing the new optimal collection algorithms
+
+import utils
+
+import utils.BinarySearch.*
+import java.util.Arrays.asList
+
+/**
+ * General functions used by all optimal collection algorithms.
+ */
+def limit(D, P, T) = (D - nbr(P)) / max(nbr(T) - nbrMinLag(), 1E-3)
+
+/**
+ * The following functions were implemented in Java 
+
+def connectionP(R, W) =
+	min(max((R - nbrMinDistNow(W)) / 
+			(nbrMaxDistNow(W) - nbrMinDistNow(W)), 0), 1)
+
+def survivalP(v, D, T, Pu, Pl) =
+	min(max((D - v * max(nbr(T) - nbrMinLag(), 1E-3) - nbr(Pl)) / 
+			nbr(Pu - Pl), 0), 1)
+
+def failingP(v, D, T, Pu, Pl, R, W) = 
+	mux(D > nbr(D) && !isInfinite(D) && nbrMaxDistNow(W) < R) {
+		1 - connectionP(R, W) * survivalP(v, D, T, Pu, Pl)
+	} else { 1 }
+
+def failingAllP(v, D, T, Pu, Pl, R, W) = 
+	foldHood(1, failingP(v, D, T, Pu, Pl, R, W), { a, b -> a * b })
+
+def mostReliableFailP(v, D, T, Pu, Pl, R, W) =
+	foldMin(POSITIVE_INFINITY, failingP(v, D, T, Pu, Pl, R, W))  
+ 
+def expectedVariance(v, D, T, Pu, Pl, R, W, failTh) {
+	let failP = max(1E-3, failingP(v, D, T, Pu, Pl, R, W))
+	1 / max(1E-3, foldSum(0, mux (failP < failTh) 
+		{ (1 - failP) / failP } else { 0 }))
+}
+* */
+
+/**
+ * Binary searches for an optimal value.
+ * 
+ * This is an example of what you can't write in Protelis since 
+ * there is no way to define the search termination condition. 
+ * We can't use the mux construct cause it evaluates both branches, 
+ * nor we can use the if construct since we don't want to partition 
+ * the network based on the termination condition.
+ * 
+ * @param needle 	the value to search
+ * @param bound    	the search boundaries [low, upp] of func
+ * @param eps  		a tolerance around the returned value
+ * @param func		a monotonic increasing function to search in
+ * @return          a value x such that |x - func^-1(needle)| <= eps
+ *
+def binarySearch(needle, eps, bound, func) {
+	let mid = (bound.get(0) + bound.get(1)) / 2
+	if (bound.get(1) - bound.get(0) <= eps) { bound.get(1) } else { 
+		let newBound = if (func(mid) < needle) 
+			 { [mid, bound.get(1)] } 
+		else { [bound.get(0), mid] }
+		binarySearch(needle, eps, newBound, func)
+	}
+} */
+
+def getBounds(D, T, Pu, Pl, W, R) {
+	let recNeighs = D > nbr(D) && !isInfinite(D) && nbrMaxDistNow(W) < R
+	[ foldMax(0, mux (recNeighs) { limit(D, Pu, T) } else { 0 }),
+	  foldMax(0, mux (recNeighs) { limit(D, Pl, T) } else { 0 }) ]
+}
+
+
+/**
+ * IDEMPOTENT OPTIMAL C (worst case)
+ * 
+ * @param D        	  distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param W        	  relative speed of devices
+ * @param R        	  radius of sure reception of a message
+ * @param P        	  potential upper bound on next round
+ * @param T        	  time upper bound between the next event
+ * @param source	  this device is the source ?
+ * @return            estimated value
+ */
+public def optimalC_idem_wst(D, value, acc, null, W, R, P, T, source) = 
+	share(old <- value) {
+		let threshold = foldMax(0, mux(
+			D > nbr(D) && !isInfinite(D) && nbrMaxDistNow(W) < R) 
+		{ limit(D, P, T) } else { 0 })
+		let nbrValues = mux(source || 
+			nbr(D) >= D + self.nbrLag() * nbr(threshold))
+        { old } else { value }
+        acc(value, foldHood(null, nbrValues, acc))
+}
+
+
+/**
+ * IDEMPOTENT OPTIMAL C (average case)
+ * 
+ * @param D        	  distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param W        	  relative speed of devices
+ * @param R        	  radius of sure reception of a message
+ * @param Pl          potential lower bound on next round
+ * @param Pu          potential upper bound on next round
+ * @param T        	  time upper bound between the next event
+ * @param source	  this device is the source ?
+ * @return            estimated value
+ */
+public def optimalC_idem_avg(D, value, acc, null, W, R, Pl, Pu, T, source) =
+	share(old <- value) {
+		let threshold = binarySearch(self, 0.001, 0.5,
+			getBounds(D, T, Pu, Pl, W, R), failingAllP, 
+			asList(D, R, W), nbr(D), self.nbrRange(), 
+			nbr(T), self.nbrLag(), nbr(Pl), nbr(Pu))
+		let nbrValues = mux(source || 
+			nbr(D) >= D + self.nbrLag() * nbr(threshold))
+	    { old } else { value }
+	    acc(value, foldHood(null, nbrValues, acc))
+}
+
+
+/**
+ * ARITHMETIC OPTIMAL C (worst case)
+ * 
+ * @param D        	  distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param W        	  relative speed of devices
+ * @param R        	  radius of sure reception of a message
+ * @param P        	  potential upper bound on next round
+ * @param T        	  time upper bound between the next event
+ * @return            estimated value
+ */
+public def optimalC_arith_wst(D, value, acc, null, W, R, P, T) =
+	share(old <- value) {
+		let id = self.getDeviceUID().getId()
+		let outreach = max(nbrMaxDistNow(W) - R, nbr(P) - D)
+		let goodness = mux (outreach < 0) 
+			{ limit(D, P, T) } else { -outreach }
+		let parent = foldMax([NEGATIVE_INFINITY, id, 0], 
+			[goodness, nbr(id), nbr(T) - self.nbrLag()])
+		let nbrValues = mux(nbr(D) > D &&
+			nbr(parent.get(1)) == id &&
+			//noRetainCheck()
+			nbr(parent.get(2)) >= self.nbrLag()) 
+		{ old } else { null }
+		acc(value, foldHood(null, nbrValues, acc))
+}
+
+
+/**
+ * ARITHMETIC OPTIMAL C (average single-path case)
+ * 
+ * @param D 		  distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param W        	  relative speed of devices
+ * @param R        	  radius of sure reception of a message
+ * @param Pl          potential lower bound on next round
+ * @param Pu          potential upper bound on next round
+ * @param T        	  time upper bound between the next event
+ * @return            estimated value
+ */
+public def optimalC_arith_avg_sp(D, value, acc, null, W, R, Pl, Pu, T) =
+	share(old <- value) {
+		let id = self.getDeviceUID().getId() 
+		let threshold = binarySearch(self, 0.001, 0.5,
+			getBounds(D, T, Pu, Pl, W, R), mostReliableFailP, 
+			asList(D, R, W), nbr(D), self.nbrRange(), 
+			nbr(T), self.nbrLag(), nbr(Pl), nbr(Pu))
+		let failP = failingP(threshold, D, R, W, 
+				nbr(D), self.nbrRange(), nbr(T), 
+				self.nbrLag(), nbr(Pl), nbr(Pu))
+		let parent = foldMin([false, POSITIVE_INFINITY, id, 0],
+        	[ failP, nbr(id), nbr(T) - self.nbrLag() ])
+		let nbrValues = mux(nbr(D) > D && 
+			nbr(parent.get(1)) == id &&
+			//noRetainCheck()
+			nbr(parent.get(2)) >= self.nbrLag()) 
+		{ old } else { null }
+        acc(value, foldHood(null, nbrValues, acc))
+}
+
+/**
+ * ARITHMETIC OPTIMAL C (average multi-path case)
+ * 
+ * @param D        	  distance from the source
+ * @param value       input value
+ * @param accumulate  aggregation function
+ * @param null        null element of accumulate
+ * @param W        	  relative speed of devices
+ * @param R        	  radius of sure reception of a message
+ * @param Pl          potential lower bound on next round
+ * @param Pu          potential upper bound on next round
+ * @param T        	  time upper bound between the next event
+ * @param source	  this device is the source ?
+ * @return            estimated value
+ */
+public def optimalC_arith_avg_mp(D, value, acc, null, W, R, Pl, Pu, T, source) =
+	share(old <- value) {
+		let failThreshold = 0.3
+		let threshold = binarySearch(self, 0, 0.5,
+			getBounds(D, T, Pu, Pl, W, R), expectedVariance, 
+			asList(D, R, W, failThreshold),
+			nbr(D), self.nbrRange(), nbr(T),
+			self.nbrLag(), nbr(Pl), nbr(Pu))
+			
+		let failP = max(1E-3, failingP(threshold, D, R, W, 
+			nbr(D), self.nbrRange(), nbr(T), 
+			self.nbrLag(), nbr(Pl), nbr(Pu)))		
+    	let outweights = mux (failP >= failThreshold) { 0 }
+    	else { let norm = foldSum(0, (1 - failP) / failP)
+    		   1 / (failP * norm) }
+		let inweights = mux (source) { 1 } else { 
+			share(x <- nbr(0)) { outweights } yield { mux(noRetainCheck()){ x } else { 0 } }
+		}		
+		acc(value, foldHood(null, old * inweights, acc))
+}
+
+/**
+ * Obsolete version of the optimal max-collection.
+ *
+ * @param dist   distance from the source
+ * @param value  input value
+ * @return       estimated maximum value
+ */
+public def optCollection(dist, value) =
+    share (old <- value) {
+        let threshold = if (dist == 0) {0} else {
+            foldMin(POSITIVE_INFINITY,
+            	mux (nbr(isInfinite(dist))) { 0 } else { (nbr(dist)-dist)/self.nbrLag() }) / 2
+        };
+        let nbrValues = mux (nbr(dist) > dist + self.nbrLag()*threshold) { old } else { value };
+        foldMin(nbrValues)
+    }

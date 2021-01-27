@@ -1,0 +1,166 @@
+module isolation_test
+
+import java.lang.System.out
+
+import protelis:coord:spreading
+
+import utils
+import collection
+import optimal
+
+
+// Adaptive-Bellmann-Ford distance estimation
+def abfGradient(source) =
+	share (old <- POSITIVE_INFINITY) {
+		mux (source) {0} else {foldMin(POSITIVE_INFINITY, old + self.nbrRange())}
+	}
+
+// Exponential filter smoothing out values.
+def filter(value) =
+	rep (x <- value) {if (x < POSITIVE_INFINITY) {x*0.8 + value*0.2} else {value}}
+
+// Reports the value of an algorithm only on sources.
+def report(source, name, value, null) =
+	env.put(name, if (source) {value} else {null})
+def reportIdem(source, name, val, ideal) {
+	report(source, name +          "-min"    ,     val,        POSITIVE_INFINITY);
+	report(source, name +          "-min_err", abs(val-ideal), POSITIVE_INFINITY);
+}
+def reportArith(source, name, val, ideal) {
+	report(source, name +          "-sum"    ,     val,        0);
+	report(source, name +          "-sum_err", abs(val-ideal), 0);
+}
+def getGAlgorithm(name,radius,v) = // return a lambda
+	{ 
+		src -> if(name == 0) {
+			abfGradient(src)
+		} else {
+			if(name == 1) {
+				flexGradient(src, 0.1, 10, radius, 0.1)
+			} else {
+				bisGradient(src, radius,v)
+			}
+		}
+	}
+
+// Determines random targets for devices.
+let area 		= env.get("area") // radius of the walking area
+circleWalk([0,0], area, 1)
+
+// The source of distance estimations (idempotent case) switches between devices 0 and 1 every 300 sec.
+let idemSourceId = floor(self.getCurrentTime() / 300) % 2
+let idemSource = self.getDeviceUID().getId() == idemSourceId
+env.put("source", idemSource)
+
+// The source of distance estimations (arithmetic case) switches between devices 0 and 1 every 200 sec.
+let arithSourceId = floor(self.getCurrentTime() / 200) % 2
+let arithSource = self.getDeviceUID().getId() == arithSourceId
+env.put("arithSource", arithSource)
+
+// Get simulation parameters.
+let rate 		= env.get("rate")
+let radius 		= env.get("radius")
+let dtime 		= env.get("dtime")
+let speed 		= env.get("speed")
+let num   		= floor(env.get("num"))
+let v = 2.0 * radius / rate
+let gAlgoName   = env.get("gAlgorithm")
+let gAlgo       = getGAlgorithm(gAlgoName, radius, v)
+
+// Spatio-temporal distances from the source (idempotent case).
+let idemD = gAlgo(idemSource)
+env.put("idemp-dist", idemD)
+let idealIdemD = self.distanceTo(idemSourceId)
+env.put("idemp-ideal-dist", idealIdemD)
+env.put("idemp-g-dist_err", abs(idemD-idealIdemD))
+env.put("idemp-g-dist_inf", mux ( idemD == POSITIVE_INFINITY ) {1} else {0})
+
+// Spatio-temporal distances from the source (arithmetic case).
+
+let arithD = gAlgo(arithSource)
+env.put("arith-dist", arithD)
+let idealArithmD = self.distanceTo(arithSourceId)
+env.put("arith-ideal-dist", idealArithmD)
+env.put("arith-g-dist_err", abs(arithD-idealArithmD))
+env.put("arith-g-dist_inf", mux ( arithD == POSITIVE_INFINITY ) {1} else {0})
+
+////////////////////////////////////////////////// IDEMPOTENT AGGREGATORS
+
+let null = [POSITIVE_INFINITY, POSITIVE_INFINITY]
+
+// Value to be minimized over the network
+let boundary = 1.6*area <= self.distanceTo(idemSourceId)
+let wave = min(max(300*cos(2*PI*(min(self.getCurrentTime(), 300)-25)/250), -220), 220) // wave-shaped target
+let val = [if (boundary) {wave} else {400}, self.getDeviceUID().getId()]
+env.put("isBoundary", boundary)
+
+let tolerance    = env.get('tolerance', 3.5)
+let threshold    = nbr(tolerance / foldSum(0, nbr(1)))
+let rootMin      = { value, num -> value }
+let accMin       = { a, b -> min(a, b) }
+let percMin      = { value, percent ->
+	mux (percent > threshold) { value } else { null }
+}
+
+let wM_idem = mpwCollection(idemD, val, accMin, null, percMin, radius)
+let mM_idem =  mpCollection(idemD, val, accMin, null, rootMin)
+let sM_idem =  spCollection(idemD, val, accMin, null)
+
+let T  = rate + 3 * dtime
+let idemPu = if (!isInfinite(idemD)) { idemD + T * speed } else { 0 }
+let idemPl = if (!isInfinite(idemD)) 
+	{ max(idemD - T * speed, 0) } else { 0 }
+
+let pM_wst = optimalC_idem_wst(idemD, val, accMin, null, speed, radius, idemPu, T, idemSource)
+let pM_avg = optimalC_idem_avg(idemD, val, accMin, null, speed, radius, idemPl, idemPu, T, idemSource)
+
+let iM_idem = if (boundary) {[wave,self.getDeviceUID().getId()]} else {null}
+
+reportIdem(true      , "ideal", iM_idem.get(0), wave)
+reportIdem(idemSource, "wmp"  , wM_idem.get(0), wave)
+reportIdem(idemSource, "mp"   , mM_idem.get(0), wave)
+reportIdem(idemSource, "sp"   , sM_idem.get(0), wave)
+reportIdem(idemSource, "list" , pM_wst.get(0) , wave)
+
+reportIdem(idemSource, "list-avg", pM_avg.get(0), wave)
+
+////////////////////////////////////////////////// ARITHMETIC AGGREGATORS
+
+let sumValue = 1
+let percSum  = { value, percent -> percent * value }
+let rootSum  = { value, num -> value / max(num, 1) }
+let accSum   = { a, b ->  a + b }
+
+let arithPu = if (!isInfinite(arithD)) { arithD + T * speed } else { 0 }
+let arithPl = if (!isInfinite(arithD)) 
+	{ max(arithD - T * speed, 0) } else { 0 }
+
+let wM_sum = mpwCollection(arithD, sumValue, accSum, 0, percSum, radius)
+let mM_sum =  mpCollection(arithD, sumValue, accSum, 0, rootSum)
+let sM_sum =  spCollection(arithD, sumValue, accSum, 0)
+
+let pM_sum_wst = optimalC_arith_wst(
+	arithD, sumValue, accSum, 0, speed, radius, arithPu, T)
+let fM_sum_wst = filter(pM_sum_wst)
+
+let pM_sum_avg_sp = optimalC_arith_avg_sp(
+	arithD, sumValue, accSum, 0, speed, radius, arithPl, arithPu, T)
+let fM_sum_avg_sp = filter(pM_sum_avg_sp)
+
+let pM_sum_avg_mp = optimalC_arith_avg_mp(
+	arithD, sumValue, accSum, 0, speed, radius, arithPl, arithPu, T, arithSource)
+let fM_sum_avg_mp = filter(pM_sum_avg_mp)
+
+reportArith(true       , "ideal", sumValue  , num)
+reportArith(arithSource, "wmp"  , wM_sum	, num)
+reportArith(arithSource, "mp"   , mM_sum	, num)
+reportArith(arithSource, "sp"   , sM_sum	, num)
+reportArith(arithSource, "list" , pM_sum_wst, num)
+reportArith(arithSource, "listf", fM_sum_wst, num)
+
+reportArith(arithSource, "list_avg_sp" , pM_sum_avg_sp, num)
+reportArith(arithSource, "listf_avg_sp", fM_sum_avg_sp, num)
+reportArith(arithSource, "list_avg_mp" , pM_sum_avg_mp, num)
+reportArith(arithSource, "listf_avg_mp", fM_sum_avg_mp, num)
+
+[]

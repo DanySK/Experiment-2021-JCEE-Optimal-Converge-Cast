@@ -1,0 +1,236 @@
+# This YAML was intended to test how various parameters ('speed', 'neigh', 'hops', 'dtime')
+#  affect the collection algorithms.
+# Here, we want to inspect multiple values of each parameter while keeping the others fixed with their default value.
+
+incarnation: protelis
+
+variables:
+  random: &random
+    min: 0
+    max: 2
+    step: 1
+    default: 0
+  speed: &speed
+    #min: 0
+    #max: 50
+    #step: 2.5
+    #default: 25
+    type: ArbitraryVariable
+    parameters: [20.0, [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 30.0, 35.0, 40.0]]
+  hops: &hops
+    #min: 5
+    #max: 15
+    #step: 1
+    #default: 10
+    type: ArbitraryVariable
+    parameters: [10, [2,3,4,5,6,7,8,10,12,14,16]] # ,12,14,16
+  neigh: &neigh
+    #min: 5
+    #max: 40
+    #step: 5
+    #default: 25
+    type: ArbitraryVariable
+    parameters: [20, [6,10,13,16,19,22,26,30]] # ,26,30
+  rate: &rate               # period length
+    formula: 1
+  dspace: &dspace           # maximum distance of target (disabled)
+    formula: 10 * speed
+  #dtime: &dtime
+  #  formula: 0.01
+  vibr: &vibr
+    formula: speed / 6
+  radius: &radius           # connection radius
+    formula: 100
+  area: &area               # radius of circular overall area
+    formula: hops * 50
+  narea: &narea
+    formula: -area
+  num: &num                 # total number of devices
+    formula: neigh * hops * hops / 4
+  border: &border           # number of devices on the border to ensures network connection (disabled)
+    formula: hops * 4
+  middle: &middle           # number of devices in the middle 
+    formula: num - 2
+  dtime: &dtime
+    type: ArbitraryVariable
+    parameters: [0.1, [0.01, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3]]
+  retain: &retain
+    min: 0
+    max: 1
+    step: 1
+    default: 1
+  retainTime: &retainTime
+    min: 1
+    max: 5
+    step: 2
+    default: 2 
+  pretain: &pretain
+    formula: "(retain == 1) ? retainTime : Double.NaN"
+  gAlgorithm: &gAlgorithm
+    type: ArbitraryVariable
+    parameters: [2, [0, 1, 2]] # 0=ABF, 1=FLEX, 2=BIS
+  usePacketLosser: &usePacketLosser
+    type: ArbitraryVariable
+    parameters: [0, [1]] # default (no loss), otherwise if the var is let to vary (loss)
+  packetLossR55: &packetLossR55
+    min: 0.8
+    max: 0.96
+    step: 0.05
+    default: 0.95
+  packetLossR99: &packetLossR99
+    formula: radius
+    
+export:
+ - time
+ - molecule: idemp-g-dist_err
+   aggregators: [mean]
+   value-filter: onlyfinite
+ - molecule: arith-g-dist_err
+   aggregators: [mean]
+   value-filter: onlyfinite
+
+ - molecule: idemp-g-dist_inf
+   aggregators: [mean]
+ - molecule: arith-g-dist_inf
+   aggregators: [mean]
+
+ - molecule: ideal-min
+   aggregators: [min]
+ - molecule: sp-min
+   aggregators: [min]
+ - molecule: mp-min
+   aggregators: [min]
+ - molecule: wmp-min
+   aggregators: [min]
+ - molecule: list-min
+   aggregators: [min]
+ - molecule: list-avg-min
+   aggregators: [min]
+
+ - molecule: sp-min_err
+   aggregators: [min]
+ - molecule: mp-min_err
+   aggregators: [min]
+ - molecule: wmp-min_err
+   aggregators: [min]
+ - molecule: list-min_err
+   aggregators: [min]
+ - molecule: list-avg-min_err
+   aggregators: [min]
+
+ - molecule: ideal-sum
+   aggregators: [sum]
+ - molecule: sp-sum
+   aggregators: [sum]
+ - molecule: mp-sum
+   aggregators: [sum]
+ - molecule: wmp-sum
+   aggregators: [sum]
+ - molecule: list-sum
+   aggregators: [sum]
+ - molecule: listf-sum
+   aggregators: [sum]
+   
+ - molecule: list_avg_sp-sum
+   aggregators: [sum]
+ - molecule: listf_avg_sp-sum
+   aggregators: [sum]
+ - molecule: list_avg_mp-sum
+   aggregators: [sum]
+ - molecule: listf_avg_mp-sum
+   aggregators: [sum]
+
+ - molecule: sp-sum_err
+   aggregators: [sum]
+ - molecule: mp-sum_err
+   aggregators: [sum]
+ - molecule: wmp-sum_err
+   aggregators: [sum]
+ - molecule: list-sum_err
+   aggregators: [sum]
+ - molecule: listf-sum_err
+   aggregators: [sum]
+
+ - molecule: list_avg_sp-sum_err
+   aggregators: [sum]
+ - molecule: listf_avg_sp-sum_err
+   aggregators: [sum]
+ - molecule: list_avg_mp-sum_err
+   aggregators: [sum]
+ - molecule: listf_avg_mp-sum_err
+   aggregators: [sum]
+
+seeds:
+  scenario: *random
+  simulation: *random
+
+network-model:
+  type: ConnectWithinDistance
+  parameters: [*radius]
+
+pools:
+  - pool: &program
+    - time-distribution:
+        type: WeibullDistributedWeibullTime
+        parameters: [*rate, *dtime, *dtime]
+      type: Event
+      actions:
+        - type: RunProtelisProgram
+          parameters: [isolation_test, *pretain]
+    - program: send
+  - pool: &vibrate
+    - time-distribution: 1
+      type: Event
+      actions:
+        - type: BrownianMove
+          parameters: [*vibr]
+  - pool: &move
+    - time-distribution: 5
+      type: Event
+      actions:
+        - type: MoveToTarget
+          parameters: [target, *speed]
+  - pool: &deviceContent
+    - molecule: dspace
+      concentration: *dspace
+    - molecule: dtime
+      concentration: *dtime
+    - molecule: speed
+      concentration: *speed
+    - molecule: rate
+      concentration: *rate
+    - molecule: radius
+      concentration: *radius
+    - molecule: area
+      concentration: *area
+    - molecule: num
+      concentration: *num
+    - molecule: gAlgorithm
+      concentration: *gAlgorithm
+    - molecule: usePacketLosser
+      concentration: *usePacketLosser
+    - molecule: packetLossR55
+      concentration: *packetLossR55
+    - molecule: packetLossR99
+      concentration: *packetLossR99
+ 
+displacements:
+  - in:                                         # source 1
+      type: Point
+      parameters: [*narea, 0]
+    programs:
+      - *program
+    contents: *deviceContent
+  - in:                                         # source 2
+      type: Point
+      parameters: [*area,  0]
+    programs:
+      - *program
+    contents: *deviceContent
+  - in:                                         # devices
+      type: Circle
+      parameters: [*middle, 0, 0, *area]
+    programs: 
+      - *program
+      - *move
+    contents: *deviceContent

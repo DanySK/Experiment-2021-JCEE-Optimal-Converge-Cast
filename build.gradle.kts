@@ -30,6 +30,7 @@ dependencies {
     fun protelis(module: String? = null) = "org.protelis:protelis${if (module == null) "" else "-$module"}:_"
     implementation(alchemist())
     implementation(alchemist("incarnation-protelis"))
+    implementation(alchemist("maps"))
     if (!GraphicsEnvironment.isHeadless()) {
         implementation(alchemist("swingui"))
         // implementation(alchemist("fxui"))
@@ -93,7 +94,9 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
             this.additionalConfiguration()
         }
         val capitalizedName = it.nameWithoutExtension.capitalize()
-        val graphic by basetask("run${capitalizedName}Graphic")
+        val graphic by basetask("run${capitalizedName}Graphic") {
+            args("-e", "test.txt" )
+        }
         runAllGraphic.dependsOn(graphic)
         val batch by basetask("run${capitalizedName}Batch") {
             description = "Launches batch experiments for $capitalizedName"
