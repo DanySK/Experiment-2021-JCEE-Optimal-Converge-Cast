@@ -26,12 +26,17 @@ sourceSets {
     }
 }
 dependencies {
-    implementation("it.unibo.alchemist:alchemist:_")
-    implementation("it.unibo.alchemist:alchemist-incarnation-protelis:_")
+    fun alchemist(module: String? = null) = "it.unibo.alchemist:alchemist${if (module == null) "" else "-$module"}:_"
+    fun protelis(module: String? = null) = "org.protelis:protelis${if (module == null) "" else "-$module"}:_"
+    implementation(alchemist())
+    implementation(alchemist("incarnation-protelis"))
     if (!GraphicsEnvironment.isHeadless()) {
-        implementation("it.unibo.alchemist:alchemist-swingui:_")
+        implementation(alchemist("swingui"))
+        implementation(alchemist("fxui"))
     }
     implementation(kotlin("stdlib-jdk8"))
+    // For extensions
+    implementation(protelis("interpreter"))
 }
 
 // Heap size estimation for batches
