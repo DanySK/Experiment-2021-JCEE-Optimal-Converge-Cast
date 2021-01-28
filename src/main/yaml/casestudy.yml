@@ -35,7 +35,7 @@ variables:
     type: ArbitraryVariable
     parameters: [1.6, [1.6]]
   radius: &radius           # connection radius
-    formula: 80
+    formula: 50
   retain: &retain
     type: ArbitraryVariable
     parameters: [3, [3]]
@@ -45,7 +45,7 @@ variables:
   packetLossR55: &packetLossR50
     formula: packetLossR99 * packetLoss50_99Ratio
   packetLossR99: &packetLossR99
-    formula: radius * 0.99
+    formula: radius
 
 export:
  - time
@@ -84,7 +84,7 @@ pools:
       concentration: 1
     - molecule: source
       concentration: true
-#  45.04862483932131, 7.68458753504245
+
 displacements:
   - in:
       type: SpecificPositions
@@ -102,9 +102,9 @@ displacements:
     programs:
       - *program
     contents: *edgeServerContent
-  - in:                                         # devices
+  - in:
       type: Polygon
-      parameters: [100, *valentino]
+      parameters: [500, *valentino]
     programs:
       - *program
       - *move

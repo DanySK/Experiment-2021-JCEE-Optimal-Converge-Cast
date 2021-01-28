@@ -1,16 +1,15 @@
 module casestudy
 import protelis:coord:spreading
+import protelis:coord:accumulation
 import optimal
 import it.unibo.alchemist.jcee.RealDistributionMaker.realDistribution
-
-//  optimalC_idem_avg // Idempotente (min, ...)
-// optimalC_arith_avg_mp
-
-// radius = R tale per cui ho almeno un vicino spesso, tale per cui ci comunico quasi sempre ~10%
-// W -- velocità MASSIMA device
+import utils
 
 def accumulateSum(a, b) = a + b
-def accumulateMin(a, b) = min(a, b)
+
+def broadcast(d, v) = share (x <- v) { foldMin([d, v], [nbr(d), x]).get(1) }
+
+def store(name, value) = env.put(name, if (env.has("source")) { value } else { NaN })
 
 let myId = self.getDeviceUID().getId()
 if (env.has("source") && self.getCurrentTime() > (myId + 2) * 100) {
@@ -31,5 +30,19 @@ let arithD = bisGradient(source, radius, bisSpeed) // call bis gradient
 let speed = 1.6 // max speed m/s
 let arithPu = if (!isInfinite(arithD)) { arithD + T * speed } else { 0 }
 let arithPl = if (!isInfinite(arithD)) { max(arithD - T * speed, 0) } else { 0 }
-optimalC_arith_avg_mp(arithD, val, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source)
-optimalC_idem_avg(arithD, val, accumulateMin, null, speed, radius, arithPl, arithPu, T, source)
+let coordinates = self.getCoordinates()
+let leader = broadcast(arithD, myId)
+env.put("leader", leader)
+store("maxDistance", optimalC_idem_avg(arithD, arithD, max, 0, speed, radius, arithPl, arithPu, T, source))
+let count = round(optimalC_arith_avg_mp(arithD, 1, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source))
+store("count", count)
+let barycenter = optimalC_arith_avg_mp(arithD, coordinates, accumulateSum, [0, 0], speed, radius, arithPl, arithPu, T, source)
+ .map { if (it == 0) { NaN } else { it } } / count
+store("barycenter", barycenter)
+
+store("maxDistanceClassic", C(arithD, max, arithD, 0))
+let countClassic = C(arithD, accumulateSum, 1, 0)
+store("countClassic", countClassic)
+let barycenterClassic = C(arithD, accumulateSum, coordinates, [0, 0]).map { if (it == 0) { NaN } else { it } } / countClassic
+store("barycenterClassic", barycenterClassic)
+1
