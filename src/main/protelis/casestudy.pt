@@ -12,7 +12,11 @@ import it.unibo.alchemist.jcee.RealDistributionMaker.realDistribution
 def accumulateSum(a, b) = a + b
 def accumulateMin(a, b) = min(a, b)
 
-let source = true
+let myId = self.getDeviceUID().getId()
+if (env.has("source") && self.getCurrentTime() > (myId + 2) * 100) {
+	env.remove("source")
+}
+let source = env.has("source")
 let radius = 60
 let val = 1
 let null = 1

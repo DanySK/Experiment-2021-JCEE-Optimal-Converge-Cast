@@ -31,6 +31,7 @@ dependencies {
     implementation(alchemist())
     implementation(alchemist("incarnation-protelis"))
     implementation(alchemist("maps"))
+    implementation(alchemist("euclidean-geometry"))
     if (!GraphicsEnvironment.isHeadless()) {
         implementation(alchemist("swingui"))
         // implementation(alchemist("fxui"))

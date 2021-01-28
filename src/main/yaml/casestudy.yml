@@ -8,65 +8,37 @@ environment:
   type: OSMEnvironment
   parameters: ["torino.pbf", false]
 
+valentino: &valentino
+  [
+    [45.059301186024264, 7.687955795175837],
+    [45.058118915858465, 7.691271005635306],
+    [45.053988356964, 7.687494455276418],
+    [45.04531700247323, 7.684318719688377],
+    [45.04545345004814, 7.68388956623084],
+    [45.04640857395953, 7.684211431323992],
+    [45.049823390518746, 7.6826074702764515],
+    [45.05019101122279, 7.682854233514535],
+    [45.0503767156286, 7.68221586774645],
+    [45.05035397634601, 7.6820173842723385],
+    [45.05046388279483, 7.681545315469049],
+    [45.050804970444965, 7.681765256620204],
+    [45.059301186024264, 7.687955795175837],
+  ]
+
 variables:
   random: &random
     min: 0
-    max: 2
+    max: 9
     step: 1
     default: 0
   speed: &speed
-    #min: 0
-    #max: 50
-    #step: 2.5
-    #default: 25
     type: ArbitraryVariable
-    parameters: [20.0, [0.0, 2.5, 5.0, 7.5, 10.0, 12.5, 15.0, 17.5, 20.0, 22.5, 25.0, 30.0, 35.0, 40.0]]
-  hops: &hops
-    #min: 5
-    #max: 15
-    #step: 1
-    #default: 10
-    type: ArbitraryVariable
-    parameters: [10, [2,3,4,5,6,7,8,10,12,14,16]] # ,12,14,16
-  neigh: &neigh
-    #min: 5
-    #max: 40
-    #step: 5
-    #default: 25
-    type: ArbitraryVariable
-    parameters: [20, [6,10,13,16,19,22,26,30]] # ,26,30
-  rate: &rate               # period length
-    formula: 1
-  dspace: &dspace           # maximum distance of target (disabled)
-    formula: 10 * speed
-  #dtime: &dtime
-  #  formula: 0.01
-  vibr: &vibr
-    formula: speed / 6
+    parameters: [1.6, [1.6]]
   radius: &radius           # connection radius
     formula: 80
-  area: &area               # radius of circular overall area
-    formula: hops * 50
-  num: &num                 # total number of devices
-    formula: neigh * hops * hops / 4
-  dtime: &dtime
-    type: ArbitraryVariable
-    parameters: [0.1, [0.01, 0.03, 0.05, 0.08, 0.1, 0.15, 0.2, 0.25, 0.3]]
   retain: &retain
-    min: 0
-    max: 1
-    step: 1
-    default: 1
-  retainTime: &retainTime
-    min: 1
-    max: 5
-    step: 2
-    default: 2 
-  pretain: &pretain
-    formula: "(retain == 1) ? retainTime : Double.NaN"
-  gAlgorithm: &gAlgorithm
     type: ArbitraryVariable
-    parameters: [2, [0, 1, 2]] # 0=ABF, 1=FLEX, 2=BIS
+    parameters: [3, [3]]
   packetLoss50_99Ratio:
     type: ArbitraryVariable
     parameters: [0.9, [0.8, 0.85, 0.9, 0.95]]
@@ -94,48 +66,46 @@ pools:
       type: Event
       actions:
         - type: RunProtelisProgram
-          parameters: [casestudy, *pretain, "PacketLoss", [*packetLossR50, *packetLossR99]]
+          parameters: [casestudy, *retain, "PacketLoss", [*packetLossR50, *packetLossR99]]
     - program: send
-  - pool: &vibrate
-    - time-distribution:
-        type: AnyRealDistribution
-        parameters: ["Exponential", 1]
-      type: Event
-      actions:
-        - type: BrownianMove
-          parameters: [*vibr]
   - pool: &move
-    - time-distribution: 5
+    - time-distribution:
+        type: ExponentialTime
+        parameters: [0.3]
       type: Event
       actions:
-        - type: MoveToTarget
-          parameters: [target, *speed]
+        - type: RandomTargetInPolygon
+          parameters: [*speed, *valentino]
   - pool: &deviceContent
     - molecule: step
       concentration: 1
-
-valentino: &valentino
-  [
-    [45.059301186024264, 7.687955795175837],
-    [45.058118915858465, 7.691271005635306],
-    [45.053988356964, 7.687494455276418],
-    [45.04531700247323, 7.684318719688377],
-    [45.04545345004814, 7.68388956623084],
-    [45.04640857395953, 7.684211431323992],
-    [45.049823390518746, 7.6826074702764515],
-    [45.05019101122279, 7.682854233514535],
-    [45.0503767156286, 7.68221586774645],
-    [45.05035397634601, 7.6820173842723385],
-    [45.05046388279483, 7.681545315469049],
-    [45.050804970444965, 7.681765256620204],
-    [45.059301186024264, 7.687955795175837],
-  ]
-
+  - &edgeServerContent
+    - molecule: step
+      concentration: 1
+    - molecule: source
+      concentration: true
+#  45.04862483932131, 7.68458753504245
 displacements:
-  - in:                                         # devices
-      type: Polygon
-      parameters: [1000, *valentino]
+  - in:
+      type: SpecificPositions
+      parameters: [
+        [45.04895835797603, 7.684759196425465],
+        [45.051649176013605, 7.683042582580164],
+        [45.05343793147707, 7.685274180523364],
+        [45.05405943514035, 7.687173184582814],
+        [45.05870533975411, 7.689866122478089],
+        [45.05636348722568, 7.685960826021708],
+        [45.054529347999164, 7.684566077411623],
+        [45.0518083471666, 7.68631487776472],
+        [45.04741960794841, 7.684877213658487], # Chiosco del Borgo
+      ]
     programs:
       - *program
-#      - *move
+    contents: *edgeServerContent
+  - in:                                         # devices
+      type: Polygon
+      parameters: [100, *valentino]
+    programs:
+      - *program
+      - *move
     contents: *deviceContent
