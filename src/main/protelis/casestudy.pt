@@ -1,0 +1,32 @@
+module casestudy
+import protelis:coord:spreading
+import optimal
+import it.unibo.alchemist.jcee.RealDistributionMaker.realDistribution
+
+//  optimalC_idem_avg // Idempotente (min, ...)
+// optimalC_arith_avg_mp
+
+// radius = R tale per cui ho almeno un vicino spesso, tale per cui ci comunico quasi sempre ~10%
+// W -- velocità MASSIMA device
+
+def accumulateSum(a, b) = a + b
+def accumulateMin(a, b) = min(a, b)
+
+let source = true
+let radius = 60
+let val = 1
+let null = 1
+
+let weibull = realDistribution("Weibull", [2.5, 1.2])
+let step = weibull.sample()
+env.put("step", step)
+let T  = step + 0.3
+
+let bisSpeed = radius / weibull.getNumericalMean() * 1.1
+let arithD = bisGradient(source, radius, bisSpeed) // call bis gradient
+let speed = 1.6 // max speed m/s
+let arithPu = if (!isInfinite(arithD)) { arithD + T * speed } else { 0 }
+let arithPl = if (!isInfinite(arithD)) { max(arithD - T * speed, 0) } else { 0 }
+optimalC_arith_avg_mp(arithD, val, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source)
+optimalC_idem_avg(arithD, val, accumulateMin, null, speed, radius, arithPl, arithPu, T, source)
+1

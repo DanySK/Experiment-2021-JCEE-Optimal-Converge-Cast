@@ -1,13 +1,8 @@
 package utils;
 
 import org.apache.commons.math3.distribution.AbstractRealDistribution;
-import org.apache.commons.math3.distribution.RealDistribution;
-import org.apache.commons.math3.exception.NumberIsTooLargeException;
-import org.apache.commons.math3.exception.OutOfRangeException;
 import org.apache.commons.math3.random.MersenneTwister;
 import org.apache.commons.math3.random.RandomGenerator;
-
-import java.util.Random;
 
 
 public class PacketLossDistribution extends AbstractRealDistribution {

@@ -40,6 +40,7 @@ dependencies {
     implementation(protelis("interpreter"))
     implementation("org.danilopianini:jirf:_")
     implementation("org.jgrapht:jgrapht-core:_")
+    implementation("org.locationtech.jts:jts:_")
     implementation("org.apache.commons:commons-lang3:_")
 }
 
