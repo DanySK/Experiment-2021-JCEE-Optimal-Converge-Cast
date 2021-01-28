@@ -12,8 +12,11 @@ public class PacketLossDistribution extends AbstractRealDistribution {
 
     public PacketLossDistribution(RandomGenerator randomGenerator, final double r50, final double r99) {
         super(randomGenerator);
-        if (r50 <= r99) {
-            throw new IllegalStateException("The radius at which packet loss is 50% must be smaller than the radius at which packet loss is 99%");
+        if (r50 >= r99) {
+            throw new IllegalStateException(
+                "The radius at which packet loss is 50% (" + r50
+                    + ") must be smaller than the radius at which packet loss is 99% (" + r99 + ')'
+            );
         }
         this.r50 = r50;
         this.r99 = r99;
@@ -71,6 +74,7 @@ public class PacketLossDistribution extends AbstractRealDistribution {
     }
 
     public static void main(String[] args) {
-        System.out.println(new PacketLossDistribution(new MersenneTwister(), 100000, 100001).cumulativeProbability(100));
+        final var r99 = 10e6;
+        System.out.println(new PacketLossDistribution(new MersenneTwister(), 0.8*r99, r99).cumulativeProbability(100));
     }
 }
