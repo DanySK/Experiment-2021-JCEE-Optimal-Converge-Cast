@@ -29,4 +29,3 @@ let arithPu = if (!isInfinite(arithD)) { arithD + T * speed } else { 0 }
 let arithPl = if (!isInfinite(arithD)) { max(arithD - T * speed, 0) } else { 0 }
 optimalC_arith_avg_mp(arithD, val, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source)
 optimalC_idem_avg(arithD, val, accumulateMin, null, speed, radius, arithPl, arithPu, T, source)
-1
