@@ -146,13 +146,26 @@ public final class ShareCall<S, T> extends AbstractPersistedTree<S, T> {
         final java.util.Optional<Field<S>> localAsField = asFieldOrEmpty(localValue, localIsField);
         final java.util.Optional<Field<S>> initAsField = asFieldOrEmpty(initValue, localIsField);
         assert !localIsField || localAsField.isPresent() && initAsField.isPresent();
-        final Field<S> nbr = localIsField
-            ? context.buildFieldDeferred(
-                field -> extractValueFromField(initAsField.get(), (Field<S>) initValue, myId),
-                localAsField.get(),
-                bodyResult::getResult
-            )
-            : context.buildFieldDeferred(Function.identity(), localValue, bodyResult::getResult);
+        /**
+         * Three cases:
+         * 1. rep. No fieldName, no field should get build
+         * 2. share/classic: local is not a field, fieldName is present, build field as usual
+         * 3. share/new: local is a field, fieldName is present, build a field with extractValueFromField
+         */
+        final Field<S> nbr;
+        if (fieldName.isPresent()) {
+            if (localIsField) {
+                nbr = context.buildFieldDeferred(
+                    field -> extractValueFromField(initAsField.get(), (Field<S>) field, myId),
+                    localAsField.get(),
+                    bodyResult::getResult
+                );
+            } else {
+                nbr = context.buildFieldDeferred(Function.identity(), localValue, bodyResult::getResult);
+            }
+        } else {
+            nbr = null;
+        }
         ifPresent(
             localName,
             localIsField
