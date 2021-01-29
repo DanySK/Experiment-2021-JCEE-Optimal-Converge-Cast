@@ -11,6 +11,8 @@ def broadcast(d, v) = share (x <- v) { foldMin([d, v], [nbr(d), x]).get(1) }
 
 def store(name, value) = env.put(name, if (env.has("source")) { value } else { NaN })
 
+def tuple2Position(tuple) = self.getEnvironmentAccess().makePosition(tuple.get(0), tuple.get(1))
+
 let myId = self.getDeviceUID().getId()
 if (env.has("source") && self.getCurrentTime() > (myId + 2) * 100) {
 	env.remove("source")
@@ -24,7 +26,7 @@ let step = weibull.sample()
 env.put("step", step)
 let T  = step + 0.3
 
-let debug = true
+let debug = false
 let bisSpeed = radius / weibull.getNumericalMean() * 1.1
 let arithD = bisGradient(source, radius, bisSpeed) // call bis gradient
 let speed = 1.6 // max speed m/s
@@ -37,20 +39,46 @@ if (debug) {
   env.put("arithPu", arithPu)
   env.put("arithPl", arithPl)
 } else { [] }
+let threshold = 0.001 // peopleWithDevices / m² ~~ 1 device every 1K people
 let coordinates = self.getCoordinates()
 let leader = broadcast(arithD, myId)
 env.put("leader", leader)
-store("maxDistance", optimalC_idem_avg(arithD, arithD, max, 0, speed, radius, arithPl, arithPu, T, source))
-let count = round(optimalC_arith_avg_mp(arithD, 1, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source))
+let maxDistance = optimalC_idem_avg(arithD, arithD, max, 0, speed, radius, arithPl, arithPu, T, source)
+store("maxDistance", maxDistance)
+let count = optimalC_arith_avg_mp(arithD, 1, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source)
 store("count", count)
-store("count1hop", foldSum(nbr(1)))
+//store("count1hop", foldSum(nbr(1)))
 let barycenter = optimalC_arith_avg_mp(arithD, coordinates, accumulateSum, [0, 0], speed, radius, arithPl, arithPu, T, source)
  .map { if (it == 0) { NaN } else { it } } / count
 store("barycenter", barycenter)
+let density = broadcast(arithD, count / PI / max(maxDistance, 30) ^ 2 * [0.25, 1])
+env.put("densityEstMin", density.get(0))
+env.put("densityEstMax", density.get(1))
+env.put("warning", density.get(1) > threshold)
+env.put("danger", density.get(0) > threshold)
 
-store("maxDistanceClassic", C(arithD, max, arithD, 0))
+let maxDistanceClassic = C(arithD, max, arithD, 0)
+store("maxDistanceClassic", maxDistanceClassic)
 let countClassic = C(arithD, accumulateSum, 1, 0)
 store("countClassic", countClassic)
 let barycenterClassic = C(arithD, accumulateSum, coordinates, [0, 0]).map { if (it == 0) { NaN } else { it } } / countClassic
 store("barycenterClassic", barycenterClassic)
-1
+let densityClassic = broadcast(arithD, countClassic / PI / max(maxDistanceClassic, 30) ^ 2 * [1, 0.25])
+env.put("densityEstMinClassic", densityClassic.get(0))
+env.put("densityEstMaxClassic", densityClassic.get(1))
+env.put("warningClassic", densityClassic.get(1) > threshold)
+env.put("dangerClassic", densityClassic.get(0) > threshold)
+
+if (source) {
+	let countOracle = env.get("countOracle")
+	let maxDistanceOracle = env.get("maxDistanceOracle")
+	let barycenterOracle = tuple2Position(env.get("barycenterOracle"))
+	env.put("errorcount", abs(countOracle - count))
+	env.put("errormaxDistance", abs(maxDistanceOracle - maxDistance))
+	env.put("errorbarycenter", abs(barycenterOracle.distanceTo(tuple2Position(barycenter))))
+	env.put("errorcountClassic", abs(countOracle - countClassic))
+	env.put("errormaxDistanceClassic", abs(maxDistanceOracle - maxDistanceClassic))
+	env.put("errorbarycenterClassic", abs(barycenterOracle.distanceTo(tuple2Position(barycenterClassic))))
+} else { 0 }
+/*
+*/
