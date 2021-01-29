@@ -150,7 +150,7 @@ displacements:
     contents: *edgeServerContent
   - in:
       type: Polygon
-      parameters: [500, *valentino]
+      parameters: [*people, *valentino]
     programs:
       - *program
       - *move
