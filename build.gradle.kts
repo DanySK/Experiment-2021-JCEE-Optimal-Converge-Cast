@@ -63,7 +63,7 @@ if (System.getProperty("os.name").toLowerCase().contains("linux")) {
     14 * 1024L
 }
 val taskSizeFromProject: Int? by project
-val taskSize = taskSizeFromProject ?: 512
+val taskSize = taskSizeFromProject ?: 1024
 val threadCount = maxOf(1, minOf(Runtime.getRuntime().availableProcessors(), heap.toInt() / taskSize ))
 
 val alchemistGroup = "Run Alchemist"
@@ -106,7 +106,7 @@ File(rootProject.rootDir.path + "/src/main/yaml").listFiles()
         val batch by basetask("run${capitalizedName}Batch") {
             description = "Launches batch experiments for $capitalizedName"
             jvmArgs("-XX:+AggressiveHeap")
-            maxHeapSize = "${minOf(heap.toInt(), Runtime.getRuntime().availableProcessors() * taskSize)}m"
+            maxHeapSize = "${minOf(heap.toInt(), Runtime.getRuntime().availableProcessors() * taskSize * 2)}m"
             File("data").mkdirs()
             args(
                 "-e", "data/${it.nameWithoutExtension}",
