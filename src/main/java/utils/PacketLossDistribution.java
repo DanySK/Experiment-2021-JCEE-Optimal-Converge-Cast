@@ -74,7 +74,8 @@ public class PacketLossDistribution extends AbstractRealDistribution {
     }
 
     public static void main(String[] args) {
-        final var r99 = 10e6;
-        System.out.println(new PacketLossDistribution(new MersenneTwister(), 0.8*r99, r99).cumulativeProbability(100));
+        final var r99 = 50;
+        final var r50 = 0.8 * r99;
+        System.out.println(new PacketLossDistribution(new MersenneTwister(), 0.8*r99, r99).cumulativeProbability(Math.log(r50) * 8));
     }
 }
