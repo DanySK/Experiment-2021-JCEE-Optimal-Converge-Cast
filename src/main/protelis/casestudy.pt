@@ -16,26 +16,34 @@ if (env.has("source") && self.getCurrentTime() > (myId + 2) * 100) {
 	env.remove("source")
 }
 let source = env.has("source")
-let radius = 60
-let val = 1
-let null = 1
+// Not the real radius, but the "high probability of communication" radius
+let radius = env.get("reliableRadius")
 
 let weibull = realDistribution("Weibull", [2.5, 1.2])
 let step = weibull.sample()
 env.put("step", step)
 let T  = step + 0.3
 
+let debug = true
 let bisSpeed = radius / weibull.getNumericalMean() * 1.1
 let arithD = bisGradient(source, radius, bisSpeed) // call bis gradient
 let speed = 1.6 // max speed m/s
 let arithPu = if (!isInfinite(arithD)) { arithD + T * speed } else { 0 }
 let arithPl = if (!isInfinite(arithD)) { max(arithD - T * speed, 0) } else { 0 }
+if (debug) {
+  env.put("bisSpeed", bisSpeed)
+  env.put("arithD", arithD)
+  env.put("speed", speed)
+  env.put("arithPu", arithPu)
+  env.put("arithPl", arithPl)
+} else { [] }
 let coordinates = self.getCoordinates()
 let leader = broadcast(arithD, myId)
 env.put("leader", leader)
 store("maxDistance", optimalC_idem_avg(arithD, arithD, max, 0, speed, radius, arithPl, arithPu, T, source))
 let count = round(optimalC_arith_avg_mp(arithD, 1, accumulateSum, 0, speed, radius, arithPl, arithPu, T, source))
 store("count", count)
+store("count1hop", foldSum(nbr(1)))
 let barycenter = optimalC_arith_avg_mp(arithD, coordinates, accumulateSum, [0, 0], speed, radius, arithPl, arithPu, T, source)
  .map { if (it == 0) { NaN } else { it } } / count
 store("barycenter", barycenter)
