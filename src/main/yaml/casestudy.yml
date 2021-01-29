@@ -34,7 +34,7 @@ variables:
   speed: &speed
     type: ArbitraryVariable
     parameters: [1.6, [1.6]]
-  radius: &radius           # connection radius
+  radius: &radius
     formula: 50
   retain: &retain
     type: ArbitraryVariable
@@ -46,6 +46,8 @@ variables:
     formula: packetLossR99 * packetLoss50_99Ratio
   packetLossR99: &packetLossR99
     formula: radius
+  reliableRadius: &reliableRadius
+    formula: Math.log(packetLossR55) * 7.8 # Empirically found to be decent
 
 export:
  - time
@@ -79,9 +81,17 @@ pools:
   - pool: &deviceContent
     - molecule: step
       concentration: 1
+    - molecule: radius
+      concentration: *radius
+    - molecule: reliableRadius
+      concentration: *reliableRadius
   - &edgeServerContent
     - molecule: step
       concentration: 1
+    - molecule: radius
+      concentration: *radius
+    - molecule: reliableRadius
+      concentration: *reliableRadius
     - molecule: source
       concentration: true
 
