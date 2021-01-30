@@ -63,7 +63,7 @@ let countClassic = C(arithD, accumulateSum, 1, 0)
 store("countClassic", countClassic)
 let barycenterClassic = C(arithD, accumulateSum, coordinates, [0, 0]).map { if (it == 0) { NaN } else { it } } / countClassic
 store("barycenterClassic", barycenterClassic)
-let densityClassic = broadcast(arithD, countClassic / PI / max(maxDistanceClassic, 30) ^ 2 * [1, 0.25])
+let densityClassic = broadcast(arithD, countClassic / PI / max(maxDistanceClassic, 30) ^ 2 * [0.25, 1])
 env.put("densityEstMinClassic", densityClassic.get(0))
 env.put("densityEstMaxClassic", densityClassic.get(1))
 env.put("warningClassic", densityClassic.get(1) > threshold)
