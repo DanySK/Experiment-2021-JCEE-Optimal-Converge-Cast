@@ -190,11 +190,11 @@ if __name__ == '__main__':
     timeSamples = 500
     # time management
     minTime = 0
-    maxTime = None
+    maxTime = 1000
     timeColumnName = 'time'
     logarithmicTime = False
     # One or more variables are considered random and "flattened"
-    seedVars = ['seed', 'longseed', 'speed', 'retain']
+    seedVars = ['seed', 'longseed', 'speed', 'retain', 'Ratio']
     # Label mapping
     class Measure:
         def __init__(self, description, unit = None):
@@ -239,6 +239,10 @@ if __name__ == '__main__':
         'msqer@harmonicCentrality[Mean]': Measure(f'${expected(mse(centrality_label))}$'),
         'msqer@harmonicCentrality[StandardDeviation]': Measure(f'${stdev_of(mse(centrality_label))}$'),
         'org:protelis:armonicCentralityHLL[Mean]': Measure(f'${expected(centrality_label)}$'),
+        'warning[Sum]': Measure('devices in warning area'),
+        'warning[Mean]': Measure(r'$P(w)$'),
+        'errorbarycenter[Mean]': Measure(r'$\mathbb{E}_\bigodot{}$', 'm'),
+        'people': Measure('circulating device'),
     }
     def derivativeOrMeasure(variable_name):
         if variable_name.endswith('dt'):
@@ -366,12 +370,43 @@ if __name__ == '__main__':
         return (fig, ax)
     def generate_all_charts(means, errors = None, basedir=''):
         viable_coords = { coord for coord in means.coords if means[coord].size > 1 }
+        print(viable_coords)
         for comparison_variable in viable_coords - {timeColumnName}:
             mergeable_variables = viable_coords - {timeColumnName, comparison_variable}
+            print(mergeable_variables)
+            if len(mergeable_variables) == 0:
+                for current_metric in means.data_vars:
+                    title = f'{label_for(current_metric)} for diverse {label_for(comparison_variable)}'
+                    for withErrors in [True, False]:
+                        fig, ax = make_line_chart(
+                            title = title,
+                            xdata = means[timeColumnName],
+                            xlabel = unit_for(timeColumnName),
+                            ylabel = unit_for(current_metric),
+                            ydata = {
+                                beautifyValue(label): (
+                                    means.sel({comparison_variable: label})[current_metric],
+                                    errors.sel({comparison_variable: label})[current_metric] if withErrors else 0
+                                )
+                                for label in means[comparison_variable].values
+                            },
+                        )
+                        ax.set_xlim(minTime, maxTime)
+                        ax.legend()
+                        fig.tight_layout()
+                        by_time_output_directory = f'{output_directory}/{basedir}/{comparison_variable}'
+                        Path(by_time_output_directory).mkdir(parents=True, exist_ok=True)
+                        figname = f'{comparison_variable}_{current_metric}_{"_err" if withErrors else ""}'
+                        for symbol in r".[]\/@:":
+                            figname = figname.replace(symbol, '_')
+                        fig.savefig(f'{by_time_output_directory}/{figname}.pdf')
+                        plt.close(fig)
+                
             for current_coordinate in mergeable_variables:
                 merge_variables = mergeable_variables - { current_coordinate }
                 merge_data_view = means.mean(dim = merge_variables, skipna = True)
                 merge_error_view = errors.mean(dim = merge_variables, skipna = True)
+                print(merge_data_view)
                 for current_coordinate_value in merge_data_view[current_coordinate].values:
                     beautified_value = beautifyValue(current_coordinate_value)
                     for current_metric in merge_data_view.data_vars:
