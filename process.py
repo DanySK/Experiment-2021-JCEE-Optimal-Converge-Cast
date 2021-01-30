@@ -184,17 +184,17 @@ if __name__ == '__main__':
     # How to name the summary of the processed data
     pickleOutput = 'data_summary'
     # Experiment prefixes: one per experiment (root of the file name)
-    experiments = ['simulation']
+    experiments = ['casestudy']
     floatPrecision = '{: 0.3f}'
     # Number of time samples 
-    timeSamples = 100
+    timeSamples = 500
     # time management
     minTime = 0
-    maxTime = 50
+    maxTime = None
     timeColumnName = 'time'
     logarithmicTime = False
     # One or more variables are considered random and "flattened"
-    seedVars = ['seed', 'longseed']
+    seedVars = ['seed', 'longseed', 'speed', 'retain']
     # Label mapping
     class Measure:
         def __init__(self, description, unit = None):
@@ -274,7 +274,7 @@ if __name__ == '__main__':
             for experiment in experiments:
                 # Collect all files for the experiment of interest
                 import fnmatch
-                allfiles = filter(lambda file: fnmatch.fnmatch(file, experiment + '_*.txt'), os.listdir(directory))
+                allfiles = filter(lambda file: fnmatch.fnmatch(file, experiment + '_*'), os.listdir(directory))
                 allfiles = [directory + '/' + name for name in allfiles]
                 allfiles.sort()
                 # From the file name, extract the independent variables
