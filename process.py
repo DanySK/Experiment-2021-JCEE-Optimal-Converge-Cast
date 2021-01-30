@@ -242,7 +242,7 @@ if __name__ == '__main__':
         'warning[Sum]': Measure('devices in warning area'),
         'warning[Mean]': Measure(r'$P(w)$'),
         'errorbarycenter[Mean]': Measure(r'$\mathbb{E}_\bigodot{}$', 'm'),
-        'people': Measure('circulating device'),
+        'people': Measure('deployed devices count'),
     }
     def derivativeOrMeasure(variable_name):
         if variable_name.endswith('dt'):
